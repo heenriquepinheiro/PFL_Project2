@@ -32,9 +32,11 @@ execute Sub (code, stack, state) = (code, sub stack, state)
 execute Mult (code, stack, state) = (code, mult stack, state)
 execute Equ (code, stack, state) = (code, eq stack, state)
 execute Le (code, stack, state) = (code, le stack, state)
+execute And (code, stack, state) = (code, myand stack, state)
+execute Neg (code, stack, state) = (code, neg stack, state)
 execute (Fetch x) (code, stack, state) = (code, fetchX x stack state, state)
 execute (Branch c1 c2) (code, stack, state) = branch c1 c2 stack state
-
+execute (Store x) (code, stack, state) = (code, pop stack, storeX x stack state)
 
 
 pushN :: Integer -> Stack -> Stack
@@ -60,7 +62,7 @@ sub stack =
   case (top stack, pop stack) of
     (IntValue x, newStack) ->
       case (top newStack, pop newStack) of
-        (IntValue y, finalStack) -> push (IntValue (y - x)) finalStack
+        (IntValue y, finalStack) -> push (IntValue (x - y)) finalStack
         _ -> error "sub: not enough elements on the stack"
     _ -> error "sub: not enough elements on the stack"
 
@@ -111,4 +113,25 @@ branch c1 c2 stack state =
     BoolValue False -> (c2, pop stack, state)
     _ -> error "branch: top of the stack is not a boolean value"
 
+
+storeX :: String -> Stack -> State -> State
+storeX x stack state =
+  case pop stack of
+    newStack -> (x, top stack) : state
+
+
+neg :: Stack -> Stack
+neg stack =
+  case (top stack, pop stack) of
+    (BoolValue x, newStack) -> push (BoolValue (not x)) newStack
+    _ -> error "neg: not enough elements on the stack"
+
+myand :: Stack -> Stack
+myand stack = 
+  case (top stack, pop stack) of
+      (BoolValue a, newStack) ->
+        case (top newStack, pop newStack) of
+          (BoolValue b, finalStack) -> push (BoolValue (a && b)) finalStack
+          _ -> error "and: not enough elements on the stack"
+      _ -> error "and: unsupported value types on the stack"
 
