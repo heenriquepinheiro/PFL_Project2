@@ -8,8 +8,8 @@ data Inst =
   deriving Show
 type Code = [Inst]
 
-
-type State = [(String, Value)]
+type Variable = String
+type State = [(Variable, Value)]
 
 
 createEmptyStack :: Stack
