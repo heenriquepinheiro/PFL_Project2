@@ -36,8 +36,8 @@ execute And (code, stack, state) = (code, myand stack, state)
 execute Neg (code, stack, state) = (code, neg stack, state)
 execute Noop (code, stack, state) = (code, noop stack, state)
 execute (Fetch x) (code, stack, state) = (code, fetchX x stack state, state)
-execute (Branch c1 c2) (code, stack, state) = branch c1 c2 stack state
--- execute (Loop c1 c2) (code, stack, state) = loop c1 c2 stack state
+execute (Branch c1 c2) (code, stack, state) = branch c1 c2 code stack state
+execute (Loop c1 c2) (code, stack, state) = (c1 ++ [Branch (c2 ++ [Loop c1 c2]) [Noop]] ++ code, stack, state)
 execute (Store x) (code, stack, state) = (code, pop stack, storeX x stack state)
 
 
@@ -108,24 +108,25 @@ fetchX x stack state =
     Nothing    -> error $ "fetchX: variable '" ++ x ++ "' not found in state"
 
 
-branch :: Code -> Code -> Stack -> State -> (Code, Stack, State)
-branch c1 c2 stack state =
+branch :: Code -> Code -> Code -> Stack -> State -> (Code, Stack, State)
+branch c1 c2 code stack state =
   case top stack of
-    BoolValue True -> (c1, pop stack, state)
-    BoolValue False -> (c2, pop stack, state)
+    BoolValue True -> (c1 ++ code, pop stack, state)
+    BoolValue False -> (c2 ++ code, pop stack, state)
     _ -> error "branch: top of the stack is not a boolean value"
-
-{-
-loop :: Code -> Code -> Stack -> State -> (Code, Stack, State)
-loop c1 c2 stack state =
-  (c1 ++ [branch (c2 ++ [loop c1 c2 stack state]) [Noop]], pop stack, state)
--}
 
 
 storeX :: String -> Stack -> State -> State
 storeX x stack state =
-  case pop stack of
-    newStack -> (x, top stack) : state
+  case lookup x state of
+    Just _ -> updateValue x stack state
+    Nothing -> (x, top stack) : state
+
+updateValue :: String -> Stack -> State -> State
+updateValue x stack state = (x, top stack) : removeValue x state
+
+removeValue :: String -> State -> State
+removeValue x state = filter (\(key, _) -> key /= x) state
 
 
 neg :: Stack -> Stack
