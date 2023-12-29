@@ -20,24 +20,31 @@ createEmptyStack :: Stack
 createEmptyStack = empty
 
 stack2Str :: Stack -> String
+
 stack2Str stack = "[" ++ "stackStr" ++ "]"
 {-
-stack2Str stack = "[" ++ stackStr ++ "]"
   where
     stackStr = intercalate ", " $ map showStackItem stack
--}
-showStackItem :: Either Int String -> String
+
+
+showStackItem :: Either Value String -> String
 showStackItem (Left intValue) = show intValue
 showStackItem (Right strValue) = strValue
+-}
 
 
 createEmptyState :: State
 createEmptyState = []
 
 state2Str :: State -> String
-state2Str state = "{" ++ stateStr ++ "}"
+state2Str state = stateStr
   where
-    stateStr = intercalate ", " $ map (\(var, value) -> var ++ ": " ++ show value) state
+    stateStr = intercalate "," $ map (\(var, value) -> var ++ "=" ++ valueToStr value) state
+
+    valueToStr :: Value -> String
+    valueToStr (IntValue x)    = show x
+    valueToStr (StringValue s) = s
+    valueToStr (BoolValue b)    = show b
 
 run :: (Code, Stack, State) -> (Code, Stack, State)
 run ([], stack, state) = ([], stack, state)  -- Quando não houver mais instruções, retorna o estado atual
