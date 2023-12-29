@@ -15,29 +15,11 @@ type Code = [Inst]
 type Variable = String
 type State = [(Variable, Int)]
 
-fetchX :: Inst -> Stack -> State -> (Inst, Stack, State)
-fetchX (Fetch var) stack state =
-  case lookup var storage of
-    Just value -> (Push (fromIntegral value), push (Left (fromIntegral value)) stack, storage)
-    Nothing    -> error $ "Variable " ++ var ++ " not found in storage"
-
-fetchX instr stack storage = (instr, stack, storage)
-
-fetchX :: Inst -> Stack -> State -> (Inst, Stack, State)
-fetchX (Fetch var) stack state =
-  case lookup var state of
-    Just value -> (Push value, push value stack, state)
-    Nothing    -> error $ "Variable " ++ var ++ " not found in storage"
-
-fetchX instr stack state = (instr, stack, state)
-
-
-
 createEmptyStack :: Stack
 createEmptyStack = empty
 
 stack2Str :: Stack -> String
-stack2Str (Stk stack) = "[" ++ stackStr ++ "]"
+stack2Str (Stack stack) = "[" ++ stackStr ++ "]"
   where
     stackStr = intercalate ", " $ map showStackItem stack
 

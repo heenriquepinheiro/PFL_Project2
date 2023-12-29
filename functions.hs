@@ -34,8 +34,10 @@ execute Equ (code, stack, state) = (code, eq stack, state)
 execute Le (code, stack, state) = (code, le stack, state)
 execute And (code, stack, state) = (code, myand stack, state)
 execute Neg (code, stack, state) = (code, neg stack, state)
+execute Noop (code, stack, state) = (code, noop stack, state)
 execute (Fetch x) (code, stack, state) = (code, fetchX x stack state, state)
 execute (Branch c1 c2) (code, stack, state) = branch c1 c2 stack state
+-- execute (Loop c1 c2) (code, stack, state) = loop c1 c2 stack state
 execute (Store x) (code, stack, state) = (code, pop stack, storeX x stack state)
 
 
@@ -113,6 +115,12 @@ branch c1 c2 stack state =
     BoolValue False -> (c2, pop stack, state)
     _ -> error "branch: top of the stack is not a boolean value"
 
+{-
+loop :: Code -> Code -> Stack -> State -> (Code, Stack, State)
+loop c1 c2 stack state =
+  (c1 ++ [branch (c2 ++ [loop c1 c2 stack state]) [Noop]], pop stack, state)
+-}
+
 
 storeX :: String -> Stack -> State -> State
 storeX x stack state =
@@ -126,6 +134,9 @@ neg stack =
     (BoolValue x, newStack) -> push (BoolValue (not x)) newStack
     _ -> error "neg: not enough elements on the stack"
 
+noop :: Stack -> Stack
+noop stack = stack
+
 myand :: Stack -> Stack
 myand stack = 
   case (top stack, pop stack) of
@@ -134,4 +145,3 @@ myand stack =
           (BoolValue b, finalStack) -> push (BoolValue (a && b)) finalStack
           _ -> error "and: not enough elements on the stack"
       _ -> error "and: unsupported value types on the stack"
-
