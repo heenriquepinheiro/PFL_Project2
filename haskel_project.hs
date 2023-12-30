@@ -5,6 +5,7 @@
 import Stack
 import Data.List (intercalate, sortBy) -- Import the intercalate function from Data.List module
 import Data.Ord (comparing) -- Import the comparing function from Data.Ord module
+import Data.Char (isDigit, isSpace, digitToInt) 
 
 -- Do not modify our definition of Inst and Code
 data Inst =
@@ -201,6 +202,7 @@ testAssembler code = (stack2Str stack, state2Str state)
 
 -- TODO: Define the types Aexp, Bexp, Stm and Program
 -- Arithmetic Expressions
+
 data Aexp
   = IntLiteral Integer
   | Variable String
@@ -223,6 +225,8 @@ data Stm
   | While Bexp [Stm]
   | If Bexp [Stm] [Stm]
   deriving (Show)
+
+type Program = [Stm]
 
 -- Statements
 compile :: [Stm] -> Code
@@ -249,19 +253,19 @@ compB (Nott b) = compB b ++ [Neg]
 compB (Andd b1 b2) = compB b1 ++ compB b2 ++ [And]
 
 data Token
-= PlusTok
-| TimesTok
-| OpenTok
-| CloseTok
-| IntTok Int
-deriving (Show)
+  = PlusTok
+  | TimesTok
+  | OpenP
+  | CloseP
+  | IntTok Integer
+  deriving (Show)
 
 lexer :: String -> [Token]
 lexer [] = []
-lexer (’+’ : restStr) = PlusTok : lexer restStr
-lexer (’*’ : restStr) = TimesTok : lexer restStr
-lexer (’(’ : restStr) = OpenP : lexer restStr
-lexer (’)’ : restStr) = CloseP : lexer restStr
+lexer ('+' : restStr) = PlusTok : lexer restStr
+lexer ('*' : restStr) = TimesTok : lexer restStr
+lexer ('(' : restStr) = OpenP : lexer restStr
+lexer (')' : restStr) = CloseP : lexer restStr
 lexer (chr : restStr)
   | isSpace chr = lexer restStr
 
@@ -271,14 +275,55 @@ lexer str@(chr : _)
   where
     (digitStr, restStr) = break (not . isDigit) str
     -- convert a string to an integer
-    stringToInt :: String -> Int
-    stringToInt=foldl (\acc chr->10*acc+digitToInt chr) 0
--- runtime error:
-lexer (_ : restString)
-  = error ("unexpected character: ’" ++ show chr ++ "’")
+    stringToInt :: String -> Integer
+    stringToInt=foldl (\acc chr->10*acc+(toInteger (digitToInt chr))) 0
+  -- runtime error:
+lexer (chr : restString)
+  = error ("unexpected character: '" ++ show chr ++ "'")
+
+------------------------------------------- PARSER -------------------------------------------
+
+parseIntOrParenExpr :: [Token] -> Maybe (Aexp, [Token])
+parseIntOrParenExpr (IntTok n : restTokens)
+  = Just (IntLiteral n, restTokens)
+parseIntOrParenExpr (OpenP : restTokens1)
+  = case parseSumOrProdOrIntOrPar restTokens1 of
+    Just (expr, (CloseP : restTokens2)) ->
+      Just (expr, restTokens2)
+    Just _ -> Nothing -- no closing paren
+    Nothing -> Nothing
+parseIntOrParenExpr tokens = Nothing
+
+parseProdOrIntOrPar :: [Token] -> Maybe (Aexp, [Token])
+parseProdOrIntOrPar tokens
+  = case parseIntOrParenExpr tokens of
+  Just (expr1, (TimesTok : restTokens1)) ->
+    case parseProdOrIntOrPar restTokens1 of
+      Just (expr2, restTokens2) ->
+        Just (Multiply expr1 expr2, restTokens2)
+      Nothing -> Nothing
+  result -> result
+
+parseSumOrProdOrIntOrPar::[Token] -> Maybe (Aexp, [Token])
+parseSumOrProdOrIntOrPar tokens
+  = case parseProdOrIntOrPar tokens of
+    Just (expr1, (PlusTok : restTokens1)) ->
+      case parseSumOrProdOrIntOrPar restTokens1 of
+        Just (expr2, restTokens2) ->
+          Just (Addd expr1 expr2, restTokens2)
+        Nothing -> Nothing
+    result -> result
+
+parser :: [Token] -> Aexp
+parser tokens =
+  case parseSumOrProdOrIntOrPar tokens of
+    Just (expr, []) -> expr
+    _ -> error "Parse error"
+
+-------------------------------------------------------------------------------------------
 
 -- parse :: String -> Program
-parse = undefined -- TODO
+parse = undefined
 
 -- To help you test your parser
 testParser :: String -> (String, String)
