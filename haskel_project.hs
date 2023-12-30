@@ -3,7 +3,8 @@
 -- Part 1
 
 import Stack
-import Data.List (intercalate) -- Import the intercalate function from Data.List module
+import Data.List (intercalate, sortBy) -- Import the intercalate function from Data.List module
+import Data.Ord (comparing) -- Import the comparing function from Data.Ord module
 
 -- Do not modify our definition of Inst and Code
 data Inst =
@@ -40,7 +41,8 @@ createEmptyState = []
 state2Str :: State -> String
 state2Str state = stateStr
   where
-    stateStr = intercalate "," $ map (\(var, value) -> var ++ "=" ++ valueToStr value) state
+    sortedState = sortBy (comparing fst) state -- Sort by variable name
+    stateStr = intercalate "," $ map (\(var, value) -> var ++ "=" ++ valueToStr value) sortedState
 
 
 run :: (Code, Stack, State) -> (Code, Stack, State)
@@ -229,10 +231,11 @@ compile = concatMap compileStm
 compileStm :: Stm -> Code
 compileStm (Assignment var exp) = compA exp ++ [Store var]
 compileStm (While cond body) = [Loop (compB cond) (compile body)]
+compileStm (If cond bodyTrue bodyFalse) =  (compB cond) ++ [Branch (compile bodyTrue) (compile bodyFalse)]
 
 compA :: Aexp -> Code
 compA (IntLiteral n) = [Push n]
-compA (Variable var) = [Fetch var]
+compA (Variable var) = [Fetch var] 
 compA (Addd e1 e2) = compA e1 ++ compA e2 ++ [Add]
 compA (Subtract e1 e2) = compA e1 ++ compA e2 ++ [Sub]
 compA (Multiply e1 e2) = compA e1 ++ compA e2 ++ [Mult]
