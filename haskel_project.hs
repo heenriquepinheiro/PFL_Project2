@@ -5,7 +5,7 @@
 import Stack
 import Data.List (intercalate, sortBy) -- Import the intercalate function from Data.List module
 import Data.Ord (comparing) -- Import the comparing function from Data.Ord module
-import Data.Char (isDigit, isSpace, digitToInt) 
+import Data.Char (isDigit, isSpace, digitToInt, isAlpha, isAlphaNum) 
 
 -- Do not modify our definition of Inst and Code
 data Inst =
@@ -205,7 +205,7 @@ testAssembler code = (stack2Str stack, state2Str state)
 
 data Aexp
   = IntLiteral Integer
-  | Variable String
+  | Variable Variable
   | Addd Aexp Aexp
   | Subtract Aexp Aexp
   | Multiply Aexp Aexp
@@ -221,7 +221,7 @@ data Bexp
   deriving (Show, Eq)
 
 data Stm
-  = Assignment String Aexp
+  = Assignment Variable Aexp
   | While Bexp [Stm]
   | If Bexp [Stm] [Stm]
   deriving (Show)
@@ -254,20 +254,52 @@ compB (Andd b1 b2) = compB b1 ++ compB b2 ++ [And]
 
 data Token
   = PlusTok
+  | MinusTok
   | TimesTok
   | OpenP
   | CloseP
   | IntTok Integer
+  | VarTok Variable
+  | BoolTok Bool
+  | AssignTok
+  | SemicolonTok
+  | IfTok
+  | ThenTok
+  | ElseTok
+  | WhileTok
+  | DoTok
+  | NotTok
+  | AndTok
+  | EqATok
+  | EqBoolTok
+  | LeTok
   deriving (Show)
 
 lexer :: String -> [Token]
 lexer [] = []
 lexer ('+' : restStr) = PlusTok : lexer restStr
+lexer ('-' : restStr) = MinusTok : lexer restStr
 lexer ('*' : restStr) = TimesTok : lexer restStr
 lexer ('(' : restStr) = OpenP : lexer restStr
 lexer (')' : restStr) = CloseP : lexer restStr
+lexer (';' : restStr) = SemicolonTok : lexer restStr
+lexer (':':'=' : restStr) = AssignTok : lexer restStr
+lexer ('i':'f' : restStr) = IfTok : lexer restStr
+lexer ('t':'h':'e':'n' : restStr) = ThenTok : lexer restStr
+lexer ('e':'l':'s':'e' : restStr) = ElseTok : lexer restStr
+lexer ('w':'h':'i':'l':'e' : restStr) = WhileTok : lexer restStr
+lexer ('d':'o' : restStr) = DoTok : lexer restStr
+lexer ('n':'o':'t' : restStr) = NotTok : lexer restStr
+lexer ('a':'n':'d' : restStr) = AndTok : lexer restStr
+lexer ('=':'=' : restStr) = EqATok : lexer restStr
+lexer ('=' : restStr) = EqBoolTok : lexer restStr
+lexer ('<':'=' : restStr) = LeTok : lexer restStr
+lexer ('T':'r':'u':'e' : restStr) = BoolTok True : lexer restStr
+lexer ('F':'a':'l':'s':'e' : restStr) = BoolTok False : lexer restStr
+
 lexer (chr : restStr)
   | isSpace chr = lexer restStr
+  | isAlpha chr = VarTok (chr : takeWhile isAlphaNum restStr) : lexer (dropWhile isAlphaNum restStr)
 
 lexer str@(chr : _)
   | isDigit chr
