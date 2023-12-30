@@ -248,6 +248,35 @@ compB (LessOrEqual e1 e2) = compA e1 ++ compA e2 ++ [Le]
 compB (Nott b) = compB b ++ [Neg]
 compB (Andd b1 b2) = compB b1 ++ compB b2 ++ [And]
 
+data Token
+= PlusTok
+| TimesTok
+| OpenTok
+| CloseTok
+| IntTok Int
+deriving (Show)
+
+lexer :: String -> [Token]
+lexer [] = []
+lexer (’+’ : restStr) = PlusTok : lexer restStr
+lexer (’*’ : restStr) = TimesTok : lexer restStr
+lexer (’(’ : restStr) = OpenP : lexer restStr
+lexer (’)’ : restStr) = CloseP : lexer restStr
+lexer (chr : restStr)
+  | isSpace chr = lexer restStr
+
+lexer str@(chr : _)
+  | isDigit chr
+  = IntTok (stringToInt digitStr) : lexer restStr
+  where
+    (digitStr, restStr) = break (not . isDigit) str
+    -- convert a string to an integer
+    stringToInt :: String -> Int
+    stringToInt=foldl (\acc chr->10*acc+digitToInt chr) 0
+-- runtime error:
+lexer (_ : restString)
+  = error ("unexpected character: ’" ++ show chr ++ "’")
+
 -- parse :: String -> Program
 parse = undefined -- TODO
 
