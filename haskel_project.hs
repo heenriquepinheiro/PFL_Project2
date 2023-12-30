@@ -16,22 +16,23 @@ type Code = [Inst]
 type Variable = String
 type State = [(Variable, Value)]
 
+valueToStr :: Value -> String
+valueToStr (IntValue x)    = show x
+valueToStr (StringValue s) = s
+valueToStr (BoolValue b)    = show b
+
+popAll :: Stack -> [Value]
+popAll s
+  | isEmpty s = []
+  | otherwise = top s : popAll (pop s)
+
 createEmptyStack :: Stack
 createEmptyStack = empty
 
 stack2Str :: Stack -> String
-
-stack2Str stack = "[" ++ "stackStr" ++ "]"
-{-
+stack2Str stack = stackStr
   where
-    stackStr = intercalate ", " $ map showStackItem stack
-
-
-showStackItem :: Either Value String -> String
-showStackItem (Left intValue) = show intValue
-showStackItem (Right strValue) = strValue
--}
-
+    stackStr = intercalate "," $ map (\x -> valueToStr x) (popAll stack)
 
 createEmptyState :: State
 createEmptyState = []
@@ -41,10 +42,6 @@ state2Str state = stateStr
   where
     stateStr = intercalate "," $ map (\(var, value) -> var ++ "=" ++ valueToStr value) state
 
-    valueToStr :: Value -> String
-    valueToStr (IntValue x)    = show x
-    valueToStr (StringValue s) = s
-    valueToStr (BoolValue b)    = show b
 
 run :: (Code, Stack, State) -> (Code, Stack, State)
 run ([], stack, state) = ([], stack, state)  -- Quando não houver mais instruções, retorna o estado atual
@@ -201,15 +198,52 @@ testAssembler code = (stack2Str stack, state2Str state)
 -- Part 2
 
 -- TODO: Define the types Aexp, Bexp, Stm and Program
+-- Arithmetic Expressions
+data Aexp
+  = IntLiteral Integer
+  | Variable String
+  | Addd Aexp Aexp
+  | Subtract Aexp Aexp
+  | Multiply Aexp Aexp
+  deriving (Show, Eq)
 
--- compA :: Aexp -> Code
-compA = undefined -- TODO
+-- Boolean Expressions
+data Bexp
+  = BoolLiteral Bool
+  | Equal Aexp Aexp
+  | LessOrEqual Aexp Aexp
+  | Nott Bexp
+  | Andd Bexp Bexp
+  deriving (Show, Eq)
 
--- compB :: Bexp -> Code
-compB = undefined -- TODO
+data Stm
+  = Assignment String Aexp
+  | While Bexp [Stm]
+  | If Bexp [Stm] [Stm]
+  deriving (Show)
 
--- compile :: Program -> Code
-compile = undefined -- TODO
+-- Statements
+compile :: [Stm] -> Code
+compile = concatMap compileStm
+
+compileStm :: Stm -> Code
+compileStm (Assignment var exp) = compA exp ++ [Store var]
+compileStm (While cond body) = [Loop (compB cond) (compile body)]
+
+compA :: Aexp -> Code
+compA (IntLiteral n) = [Push n]
+compA (Variable var) = [Fetch var]
+compA (Addd e1 e2) = compA e1 ++ compA e2 ++ [Add]
+compA (Subtract e1 e2) = compA e1 ++ compA e2 ++ [Sub]
+compA (Multiply e1 e2) = compA e1 ++ compA e2 ++ [Mult]
+
+compB :: Bexp -> Code
+compB (BoolLiteral True) = [Tru]
+compB (BoolLiteral False) = [Fals]
+compB (Equal e1 e2) = compA e1 ++ compA e2 ++ [Equ]
+compB (LessOrEqual e1 e2) = compA e1 ++ compA e2 ++ [Le]
+compB (Nott b) = compB b ++ [Neg]
+compB (Andd b1 b2) = compB b1 ++ compB b2 ++ [And]
 
 -- parse :: String -> Program
 parse = undefined -- TODO
