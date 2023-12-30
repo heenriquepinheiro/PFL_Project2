@@ -240,17 +240,17 @@ compileStm (If cond bodyTrue bodyFalse) =  (compB cond) ++ [Branch (compile body
 compA :: Aexp -> Code
 compA (IntLiteral n) = [Push n]
 compA (Variable var) = [Fetch var] 
-compA (Addd e1 e2) = compA e1 ++ compA e2 ++ [Add]
-compA (Subtract e1 e2) = compA e1 ++ compA e2 ++ [Sub]
-compA (Multiply e1 e2) = compA e1 ++ compA e2 ++ [Mult]
+compA (Addd e1 e2) = compA e2 ++ compA e1 ++ [Add]
+compA (Subtract e1 e2) = compA e2 ++ compA e1 ++ [Sub]
+compA (Multiply e1 e2) = compA e2 ++ compA e1 ++ [Mult]
 
 compB :: Bexp -> Code
 compB (BoolLiteral True) = [Tru]
 compB (BoolLiteral False) = [Fals]
-compB (Equal e1 e2) = compA e1 ++ compA e2 ++ [Equ]
-compB (LessOrEqual e1 e2) = compA e1 ++ compA e2 ++ [Le]
+compB (Equal e1 e2) = compA e2 ++ compA e1 ++ [Equ]
+compB (LessOrEqual e1 e2) = compA e2 ++ compA e1 ++ [Le]
 compB (Nott b) = compB b ++ [Neg]
-compB (Andd b1 b2) = compB b1 ++ compB b2 ++ [And]
+compB (Andd b1 b2) = compB b2 ++ compB b1 ++ [And]
 
 data Token
   = PlusTok
@@ -377,8 +377,8 @@ parser tokens =
 
 -------------------------------------------------------------------------------------------
 
--- parse :: String -> Program
-parse = undefined
+parse :: String -> Program
+parse main_code = parser (lexer main_code)
 
 -- To help you test your parser
 testParser :: String -> (String, String)
