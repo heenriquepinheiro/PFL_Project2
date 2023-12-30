@@ -318,6 +318,8 @@ lexer (chr : restString)
 parseIntOrParenExpr :: [Token] -> Maybe (Aexp, [Token])
 parseIntOrParenExpr (IntTok n : restTokens)
   = Just (IntLiteral n, restTokens)
+parseIntOrParenExpr (VarTok var : restTokens)
+  = Just (Variable var, restTokens)
 parseIntOrParenExpr (OpenP : restTokens1)
   = case parseSumOrProdOrIntOrPar restTokens1 of
     Just (expr, (CloseP : restTokens2)) ->
@@ -355,16 +357,17 @@ parseSumOrProdOrIntOrPar tokens
     result -> result
 
 parseStatement :: [Token] -> Maybe (Program, [Token])
-parseStatement [] = Nothing
 parseStatement (VarTok var : AssignTok : restTokens1) =
   case parseSumOrProdOrIntOrPar restTokens1 of
     Just (expr, SemicolonTok : restTokens2) ->
       case parseStatement restTokens2 of
         Just (stmts, restTokens3) ->
-          Just (Assignment var expr : stmts, restTokens3) -- CURRENTLY NOT WORKING
+          Just ([Assignment var expr] ++ stmts, restTokens3) -- CURRENTLY NOT WORKING
         Nothing ->
           Just ([Assignment var expr], restTokens2)
-    _ -> error "Here again??"
+    _ -> Nothing
+
+parseStatement tokens = Nothing
     
 
 
