@@ -453,6 +453,27 @@ parseStatement (VarTok var : AssignTok : restTokens1) =
         Nothing ->
           Just ([Assignment var expr], restTokens2)
     _ -> Nothing
+parseStatement (IfTok : restTokens1) =
+  case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
+    Just (expr, ThenTok : restTokens2) ->
+      case parseStatement restTokens2 of
+        Just (stmts1, ElseTok : restTokens3) ->
+          case parseStatement restTokens3 of
+            Just (stmts2, restTokens4) ->
+              Just ([If expr stmts1 stmts2] , restTokens4)
+            Nothing -> Nothing
+        Just (stmts1, restTokens3) ->
+          Just ([If expr stmts1 []] , restTokens3)
+        Nothing -> Nothing
+    _ -> Nothing
+parseStatement (WhileTok : restTokens1) =
+  case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
+    Just (expr, DoTok : restTokens2) ->
+      case parseStatement restTokens2 of
+        Just (stmts, restTokens3) ->
+          Just ([While expr stmts] , restTokens3)
+        Nothing -> Nothing
+    _ -> Nothing
 
 parseStatement tokens = Nothing
     
