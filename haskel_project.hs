@@ -215,6 +215,7 @@ data Aexp
 data Bexp
   = BoolLiteral Bool
   | Equal Aexp Aexp
+  | EqualBool Bexp Bexp
   | LessOrEqual Aexp Aexp
   | Nott Bexp
   | Andd Bexp Bexp
@@ -248,6 +249,7 @@ compB :: Bexp -> Code
 compB (BoolLiteral True) = [Tru]
 compB (BoolLiteral False) = [Fals]
 compB (Equal e1 e2) = compA e2 ++ compA e1 ++ [Equ]
+compB (EqualBool e1 e2) = compB e2 ++ compB e1 ++ [Equ]
 compB (LessOrEqual e1 e2) = compA e2 ++ compA e1 ++ [Le]
 compB (Nott b) = compB b ++ [Neg]
 compB (Andd b1 b2) = compB b2 ++ compB b1 ++ [And]
@@ -315,6 +317,7 @@ lexer (chr : restString)
 
 ------------------------------------------- PARSER -------------------------------------------
 
+-------- ARITHMETIC PARSER --------
 parseIntOrParenExpr :: [Token] -> Maybe (Aexp, [Token])
 parseIntOrParenExpr (IntTok n : restTokens)
   = Just (IntLiteral n, restTokens)
@@ -355,6 +358,74 @@ parseSumOrProdOrIntOrPar tokens
     Just (expr, (SemicolonTok : restTokens)) ->
       Just (expr, [SemicolonTok] ++ restTokens)  
     result -> result
+
+-------- BOOLEAN PARSER --------
+
+parseBoolOrParenExpr :: [Token] -> Maybe (Bexp, [Token])
+parseBoolOrParenExpr (BoolTok n : restTokens)
+  = Just (BoolLiteral n, restTokens)
+parseBoolOrParenExpr (OpenP : restTokens1)
+  = case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
+    Just (expr, (CloseP : restTokens2)) ->
+      Just (expr, restTokens2)
+    Just _ -> Nothing -- no closing paren
+    Nothing -> Nothing
+parseBoolOrParenExpr tokens = Nothing
+
+parseLeOrBoolOrPar :: [Token] -> Maybe (Bexp, [Token])
+parseLeOrBoolOrPar tokens
+  = case parseBoolOrParenExpr tokens of
+    Just (expr1, (LeTok : restTokens1)) ->
+      case parseLeOrBoolOrPar restTokens1 of
+        Just (expr2, restTokens2) ->
+          Just (LessOrEqual expr1 expr2, restTokens2)
+        Nothing -> Nothing
+    Just (expr, (SemicolonTok : restTokens)) -> Just (expr, [SemicolonTok] ++ restTokens)
+    result -> result
+
+parseEqAOrLeOrBoolOrPar :: [Token] -> Maybe (Bexp, [Token])
+parseEqAOrLeOrBoolOrPar tokens
+  = case parseLeOrBoolOrPar tokens of
+    Just (expr1, (EqATok : restTokens1)) ->
+      case parseEqAOrLeOrBoolOrPar restTokens1 of
+        Just (expr2, restTokens2) ->
+          Just (Equal expr1 expr2, restTokens2)
+        Nothing -> Nothing
+    Just (expr, (SemicolonTok : restTokens)) -> Just (expr, [SemicolonTok] ++ restTokens)
+    result -> result
+
+parseNotOrEqAOrLeOrBoolOrPar :: [Token] -> Maybe (Bexp, [Token])
+parseNotOrEqAOrLeOrBoolOrPar (NotTok: restTokens)
+  = case parseBoolOrParenExpr restTokens of
+    Just (expr1, restTokens1) ->
+      Just (Nott expr1, restTokens1)
+    result -> result
+parseNotOrEqAOrLeOrBoolOrPar tokens = parseBoolOrParenExpr tokens
+
+parseEqBOrNotOrEqAOrLeOrBoolOrPar::[Token] -> Maybe (Bexp, [Token])
+parseEqBOrNotOrEqAOrLeOrBoolOrPar tokens
+  = case parseNotOrEqAOrLeOrBoolOrPar tokens of
+    Just (expr1, (EqBoolTok : restTokens1)) ->
+      case parseEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
+        Just (expr2, restTokens2) ->
+          Just (EqualBool expr1 expr2, restTokens2)
+        Nothing -> Nothing
+    Just (expr, (SemicolonTok : restTokens)) -> Just (expr, [SemicolonTok] ++ restTokens)  
+    result -> result
+
+parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar :: [Token] -> Maybe (Bexp, [Token])
+parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar tokens =
+  case parseEqBOrNotOrEqAOrLeOrBoolOrPar tokens of
+    Just (expr1, (AndTok : restTokens1)) ->
+      case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
+        Just (expr2, restTokens2) ->
+          Just (Andd expr1 expr2, restTokens2)
+        Nothing -> Nothing
+    Just (expr, (SemicolonTok : restTokens)) -> Just (expr, [SemicolonTok] ++ restTokens)  
+    result -> result
+
+
+-------- STATEMENT PARSER --------
 
 parseStatement :: [Token] -> Maybe (Program, [Token])
 parseStatement (VarTok var : AssignTok : restTokens1) =
