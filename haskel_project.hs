@@ -214,9 +214,10 @@ data Aexp
 -- Boolean Expressions
 data Bexp
   = BoolLiteral Bool
-  | Equal Aexp Aexp
+  | Aexp Aexp
+  | Equal Bexp Bexp
   | EqualBool Bexp Bexp
-  | LessOrEqual Aexp Aexp
+  | LessOrEqual Bexp Bexp
   | Nott Bexp
   | Andd Bexp Bexp
   deriving (Show, Eq)
@@ -248,11 +249,12 @@ compA (Multiply e1 e2) = compA e2 ++ compA e1 ++ [Mult]
 compB :: Bexp -> Code
 compB (BoolLiteral True) = [Tru]
 compB (BoolLiteral False) = [Fals]
-compB (Equal e1 e2) = compA e2 ++ compA e1 ++ [Equ]
+compB (Equal e1 e2) = compB e2 ++ compB e1 ++ [Equ]
 compB (EqualBool e1 e2) = compB e2 ++ compB e1 ++ [Equ]
-compB (LessOrEqual e1 e2) = compA e2 ++ compA e1 ++ [Le]
+compB (LessOrEqual e1 e2) = compB e2 ++ compB e1 ++ [Le]
 compB (Nott b) = compB b ++ [Neg]
 compB (Andd b1 b2) = compB b2 ++ compB b1 ++ [And]
+compB (Aexp e) = compA e
 
 data Token
   = PlusTok
@@ -361,6 +363,9 @@ parseSumOrProdOrIntOrPar tokens
 
 -------- BOOLEAN PARSER --------
 
+parseAexp::[Token]-> Maybe (Aexp, [Token])
+parseAexp tokens = parseSumOrProdOrIntOrPar tokens
+
 parseBoolOrParenExpr :: [Token] -> Maybe (Bexp, [Token])
 parseBoolOrParenExpr (BoolTok n : restTokens)
   = Just (BoolLiteral n, restTokens)
@@ -372,9 +377,17 @@ parseBoolOrParenExpr (OpenP : restTokens1)
     Nothing -> Nothing
 parseBoolOrParenExpr tokens = Nothing
 
+parseAexpOrBoolOrParenExpr :: [Token] -> Maybe (Bexp, [Token])
+parseAexpOrBoolOrParenExpr tokens =
+  case parseBoolOrParenExpr tokens of
+    Just (expr, restTokens) -> Just (expr, restTokens)
+    Nothing -> case parseAexp tokens of
+      Just (expr, restTokens) -> Just (Aexp expr, restTokens)
+      Nothing -> Nothing
+
 parseLeOrBoolOrPar :: [Token] -> Maybe (Bexp, [Token])
 parseLeOrBoolOrPar tokens
-  = case parseBoolOrParenExpr tokens of
+  = case parseAexpOrBoolOrParenExpr tokens of
     Just (expr1, (LeTok : restTokens1)) ->
       case parseLeOrBoolOrPar restTokens1 of
         Just (expr2, restTokens2) ->
@@ -396,11 +409,14 @@ parseEqAOrLeOrBoolOrPar tokens
 
 parseNotOrEqAOrLeOrBoolOrPar :: [Token] -> Maybe (Bexp, [Token])
 parseNotOrEqAOrLeOrBoolOrPar (NotTok: restTokens)
-  = case parseBoolOrParenExpr restTokens of
+  = case parseEqAOrLeOrBoolOrPar restTokens of
     Just (expr1, restTokens1) ->
       Just (Nott expr1, restTokens1)
     result -> result
-parseNotOrEqAOrLeOrBoolOrPar tokens = parseBoolOrParenExpr tokens
+parseNotOrEqAOrLeOrBoolOrPar tokens 
+  = case parseEqAOrLeOrBoolOrPar tokens of
+    Just (expr1, restTokens1) -> Just (expr1, restTokens1)
+    result -> result
 
 parseEqBOrNotOrEqAOrLeOrBoolOrPar::[Token] -> Maybe (Bexp, [Token])
 parseEqBOrNotOrEqAOrLeOrBoolOrPar tokens
