@@ -442,8 +442,15 @@ parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar tokens =
 
 
 -------- STATEMENT PARSER --------
+parseSingleStatement :: [Token] -> Maybe (Program, [Token])
+parseSingleStatement (VarTok var : AssignTok : restTokens1) =
+  case parseSumOrProdOrIntOrPar restTokens1 of
+    Just (expr, SemicolonTok : restTokens2) ->
+      Just ([Assignment var expr], restTokens2)
+    _ -> Nothing
 
 parseStatement :: [Token] -> Maybe (Program, [Token])
+parseStatement [] = Just ([], [])
 parseStatement (VarTok var : AssignTok : restTokens1) =
   case parseSumOrProdOrIntOrPar restTokens1 of
     Just (expr, SemicolonTok : restTokens2) ->
@@ -453,25 +460,72 @@ parseStatement (VarTok var : AssignTok : restTokens1) =
         Nothing ->
           Just ([Assignment var expr], restTokens2)
     _ -> Nothing
+
+------------------ IF STATEMENT PARSER -----------------
 parseStatement (IfTok : restTokens1) =
   case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
-    Just (expr, ThenTok : restTokens2) ->
+    Just (expr, ThenTok : OpenP : restTokens2) ->
       case parseStatement restTokens2 of
-        Just (stmts1, ElseTok : restTokens3) ->
+        Just (stmts1, CloseP : ElseTok : OpenP : restTokens3) ->
           case parseStatement restTokens3 of
+            Just (stmts2, CloseP : restTokens4) ->
+              case parseStatement restTokens4 of
+                Just (additionalStmts, finalRestTokens) ->
+                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
+                Nothing -> Nothing
+            Nothing -> Nothing
+        Just (stmts1, CloseP : ElseTok : restTokens3) ->
+          case parseSingleStatement restTokens3 of
             Just (stmts2, restTokens4) ->
-              Just ([If expr stmts1 stmts2] , restTokens4)
+              case parseStatement restTokens4 of
+                Just (additionalStmts, finalRestTokens) ->
+                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
+                Nothing -> Nothing
+            Nothing -> Nothing
+        Just (stmts1, restTokens3) ->
+          Just ([If expr stmts1 []] , restTokens3)
+        Nothing -> Nothing
+    Just (expr, ThenTok : restTokens2) ->
+      case parseSingleStatement restTokens2 of
+        Just (stmts1, ElseTok : OpenP : restTokens3) ->
+          case parseStatement restTokens3 of
+            Just (stmts2, CloseP:restTokens4) ->
+              case parseStatement restTokens4 of
+                Just (additionalStmts, finalRestTokens) ->
+                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
+                Nothing -> Nothing
+            Nothing -> Nothing
+        Just (stmts1, ElseTok : restTokens3) ->
+          case parseSingleStatement restTokens3 of
+            Just (stmts2, restTokens4) ->
+              case parseStatement restTokens4 of
+                Just (additionalStmts, finalRestTokens) ->
+                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
+                Nothing -> Nothing
             Nothing -> Nothing
         Just (stmts1, restTokens3) ->
           Just ([If expr stmts1 []] , restTokens3)
         Nothing -> Nothing
     _ -> Nothing
+
+------------------ WHILE STATEMENT PARSER -----------------
 parseStatement (WhileTok : restTokens1) =
   case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
-    Just (expr, DoTok : restTokens2) ->
+    Just (expr, DoTok : OpenP: restTokens2) ->
       case parseStatement restTokens2 of
+        Just (stmts, CloseP: SemicolonTok: restTokens3) ->
+          case parseStatement restTokens3 of
+            Just (additionalStmts, finalRestTokens) ->
+              Just ([While expr stmts] ++ additionalStmts, finalRestTokens)
+            Nothing -> Nothing
+        Nothing -> Nothing
+    Just (expr, DoTok : restTokens2) ->
+      case parseSingleStatement restTokens2 of
         Just (stmts, restTokens3) ->
-          Just ([While expr stmts] , restTokens3)
+          case parseStatement restTokens3 of
+            Just (additionalStmts, finalRestTokens) ->
+              Just ([While expr stmts] ++ additionalStmts, finalRestTokens)
+            Nothing -> Nothing
         Nothing -> Nothing
     _ -> Nothing
 
