@@ -442,13 +442,31 @@ parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar tokens =
 
 
 -------- STATEMENT PARSER --------
-parseSingleStatement :: [Token] -> Maybe (Program, [Token])
-parseSingleStatement (VarTok var : AssignTok : restTokens1) =
+parseStatements :: [Token] -> Maybe (Program, [Token])
+parseStatements [] = Just ([], [])
+parseStatements tokens =
+  case parseStatement tokens of
+    Just (stmt, restTokens) ->
+      case parseStatementParen restTokens of
+        Just (stmts, finalRestTokens) -> Just (stmt : stmts, finalRestTokens)
+        _ -> Just ([stmt], restTokens)
+    Nothing -> Nothing
+
+parseStatementParen :: [Token] -> Maybe (Program, [Token])
+parseStatementParen (OpenP : restTokens1) =
+  case parseStatements restTokens1 of
+    Just (stmts, (CloseP : restTokens2)) -> Just (stmts, restTokens2)
+    _ -> Nothing -- no closing paren
+parseStatementParen tokens = parseStatements tokens
+
+parseStatement :: [Token] -> Maybe (Stm, [Token])
+parseStatement (VarTok var : AssignTok : restTokens1) =
   case parseSumOrProdOrIntOrPar restTokens1 of
     Just (expr, SemicolonTok : restTokens2) ->
-      Just ([Assignment var expr], restTokens2)
+      Just (Assignment var expr, restTokens2)
     _ -> Nothing
 
+{-
 parseStatement :: [Token] -> Maybe (Program, [Token])
 parseStatement [] = Just ([], [])
 parseStatement (VarTok var : AssignTok : restTokens1) =
@@ -460,83 +478,60 @@ parseStatement (VarTok var : AssignTok : restTokens1) =
         Nothing ->
           Just ([Assignment var expr], restTokens2)
     _ -> Nothing
-
+-}
 ------------------ IF STATEMENT PARSER -----------------
 parseStatement (IfTok : restTokens1) =
   case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
-    Just (expr, ThenTok : OpenP : restTokens2) ->
-      case parseStatement restTokens2 of
-        Just (stmts1, CloseP : ElseTok : OpenP : restTokens3) ->
-          case parseStatement restTokens3 of
-            Just (stmts2, CloseP : restTokens4) ->
-              case parseStatement restTokens4 of
-                Just (additionalStmts, finalRestTokens) ->
-                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
-                Nothing -> Nothing
-            Nothing -> Nothing
-        Just (stmts1, CloseP : ElseTok : restTokens3) ->
-          case parseSingleStatement restTokens3 of
-            Just (stmts2, restTokens4) ->
-              case parseStatement restTokens4 of
-                Just (additionalStmts, finalRestTokens) ->
-                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
-                Nothing -> Nothing
-            Nothing -> Nothing
-        Just (stmts1, restTokens3) ->
-          Just ([If expr stmts1 []] , restTokens3)
-        Nothing -> Nothing
     Just (expr, ThenTok : restTokens2) ->
-      case parseSingleStatement restTokens2 of
-        Just (stmts1, ElseTok : OpenP : restTokens3) ->
-          case parseStatement restTokens3 of
-            Just (stmts2, CloseP:restTokens4) ->
-              case parseStatement restTokens4 of
-                Just (additionalStmts, finalRestTokens) ->
-                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
-                Nothing -> Nothing
-            Nothing -> Nothing
+      case parseThenStatements restTokens2 of
         Just (stmts1, ElseTok : restTokens3) ->
-          case parseSingleStatement restTokens3 of
-            Just (stmts2, restTokens4) ->
-              case parseStatement restTokens4 of
-                Just (additionalStmts, finalRestTokens) ->
-                    Just ([If expr stmts1 stmts2] ++ additionalStmts, finalRestTokens)
-                Nothing -> Nothing
+          case parseElseStatements restTokens3 of
+            Just (stmts2, finalRestTokens) -> Just (If expr stmts1 stmts2, finalRestTokens)
             Nothing -> Nothing
-        Just (stmts1, restTokens3) ->
-          Just ([If expr stmts1 []] , restTokens3)
-        Nothing -> Nothing
+        _ -> Nothing
     _ -> Nothing
-
+    
 ------------------ WHILE STATEMENT PARSER -----------------
 parseStatement (WhileTok : restTokens1) =
   case parseAndOrEqBOrNotOrEqAOrLeOrBoolOrPar restTokens1 of
     Just (expr, DoTok : OpenP: restTokens2) ->
-      case parseStatement restTokens2 of
-        Just (stmts, CloseP: SemicolonTok: restTokens3) ->
-          case parseStatement restTokens3 of
-            Just (additionalStmts, finalRestTokens) ->
-              Just ([While expr stmts] ++ additionalStmts, finalRestTokens)
-            Nothing -> Nothing
-        Nothing -> Nothing
-    Just (expr, DoTok : restTokens2) ->
-      case parseSingleStatement restTokens2 of
-        Just (stmts, restTokens3) ->
-          case parseStatement restTokens3 of
-            Just (additionalStmts, finalRestTokens) ->
-              Just ([While expr stmts] ++ additionalStmts, finalRestTokens)
-            Nothing -> Nothing
+      case parseStatements restTokens2 of
+        Just (stmts, CloseP: SemicolonTok: finalRestTokens) -> Just (While expr stmts, finalRestTokens)
         Nothing -> Nothing
     _ -> Nothing
 
-parseStatement tokens = Just ([], tokens)
-    
+parseStatement tokens = Nothing
+
+parseThenStatements :: [Token] -> Maybe (Program, [Token])
+parseThenStatements tokens =
+  case tokens of
+    OpenP : restTokens1 ->
+      case parseStatements restTokens1 of
+        Just (stmts, CloseP : restTokens2) -> Just (stmts, restTokens2)
+        _ -> Nothing
+    _ -> 
+      case parseStatement tokens of
+        Just (stmt, restTokens) -> Just ([stmt], restTokens)
+        _ -> Nothing
+
+parseElseStatements :: [Token] -> Maybe (Program, [Token])
+parseElseStatements tokens =
+  case tokens of
+    OpenP : restTokens1 ->
+      case parseStatements restTokens1 of
+        Just (stmts, CloseP : SemicolonTok : restTokens2) -> Just (stmts, restTokens2)
+        _ -> Nothing
+    _ -> 
+      case parseStatement tokens of
+        Just (stmt, restTokens) -> Just ([stmt], restTokens)
+        _ -> Nothing
+
 
 
 
 parser :: [Token] -> Program
 parser tokens =
-  case parseStatement tokens of
+  case parseStatements tokens of
     Just (expr, []) -> expr
     _ -> error "Parse error"
 
@@ -552,10 +547,15 @@ testParser programCode = (stack2Str stack, state2Str store)
 
 -- Examples:
 -- testParser "x := 5; x := x - 1;" == ("","x=4")
+-- testParser "x := 0 - 2;" == ("","x=-2")
 -- testParser "if (not True and 2 <= 5 = 3 == 4) then x :=1; else y := 2;" == ("","y=2")
--- testParser "x := 42; if x <= 43 then x := 1; else (x := 33; x := x+1;)" == ("","x=1")
+-- testParser "x := 42; if x <= 43 then x := 1; else (x := 33; x := x+1;);" == ("","x=1")
 -- testParser "x := 42; if x <= 43 then x := 1; else x := 33; x := x+1;" == ("","x=2")
 -- testParser "x := 42; if x <= 43 then x := 1; else x := 33; x := x+1; z := x+x;" == ("","x=2,z=4")
+-- testParser "x := 44; if x <= 43 then x := 1; else (x := 33; x := x+1;); y := x*2;" == ("","x=34,y=68")
+-- testParser "x := 42; if x <= 43 then (x := 33; x := x+1;) else x := 1;" == ("","x=34")
+-- testParser "if (1 == 0+1 = 2+1 == 3) then x := 1; else x := 2;" == ("","x=1")
+-- testParser "if (1 == 0+1 = (2+1 == 4)) then x := 1; else x := 2;" == ("","x=2")
 -- testParser "x := 2; y := (x - 3)*(4 + 2*3); z := x +x*(2);" == ("","x=2,y=-10,z=6")
 -- testParser "i := 10; fact := 1; while (not(i == 1)) do (fact := fact * i; i := i - 1;);" == ("","fact=3628800,i=1")
 
