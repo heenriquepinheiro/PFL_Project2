@@ -482,7 +482,10 @@ parseStatements :: [Token] -> Maybe (Program, [Token])
 parseStatements [] = Just ([], [])
 parseStatements (OpenP : restTokens1) =
   case parseStatements restTokens1 of
-    Just (stmts, (CloseP : SemicolonTok : restTokens2)) -> Just (stmts, restTokens2)
+    Just (stmts, (CloseP : SemicolonTok : restTokens2)) ->
+      case parseStatements restTokens2 of
+        Just (stmts2, finalRestTokens) -> Just (stmts ++ stmts2, finalRestTokens)
+        _ -> Nothing
     _ -> Nothing -- no closing paren
 parseStatements tokens =
   case parseStatement tokens of
