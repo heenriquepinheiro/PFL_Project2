@@ -388,6 +388,30 @@ parse :: String -> Program
 parse main_code = parser (lexer main_code)
 ```
 
+## Execution Examples
+### Given Examples
+<img src="testCaseParser.png">
+<img src="testCaseAssembler.png">.
+
+### Our Examples
+```hs
+-- Example 1
+ghci> testParser "x:=0; if (True = 1+2<=5+1) then (y:=4; z:=2; x:= y*z;) else while x == 0 do (x:=5;);"
+("","x=8,y=4,z=2")
+-- Example 2
+ghci> testParser "x:=0; i:=2; j:=2; while not i==0 do(while not j==0 do(x:=x+1; j:=j-1;); j:=2; i:=i-1;);"
+("","i=0,j=2,x=4")
+-- Example 3
+ghci> testParser "x:=0; if (False = 1+2<=5+1) then (y:=4; z:=2; x:= y*z;) else while x == 0 do (x:=5;);"  
+("","x=5")
+-- Example 4
+ghci> testParser "(x:=0; y:=1;); if y==1 then z:=0-1; else a:=x+1;"
+("","x=0,y=1,z=-1")
+-- Example 5
+ghci> testParser "(x:=0; y:=1;); if y==0-1 then z:=0-1; else a:=x+1;"
+("","a=1,x=0,y=1")
+```
+
 
 
 
