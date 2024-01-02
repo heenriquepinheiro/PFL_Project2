@@ -5,7 +5,7 @@
 import Stack
 import Data.List (intercalate, sortBy) -- Import the intercalate function from Data.List module
 import Data.Ord (comparing) -- Import the comparing function from Data.Ord module
-import Data.Char (isDigit, isSpace, digitToInt, isAlpha, isAlphaNum) 
+import Data.Char (isDigit, isSpace, digitToInt, isAlpha, isAlphaNum, isLower)
 
 -- Do not modify our definition of Inst and Code
 data Inst =
@@ -73,7 +73,7 @@ execute (Fetch x) (code, stack, state) = (code, fetchX x stack state, state)
 execute (Branch c1 c2) (code, stack, state) = branch c1 c2 code stack state
 execute (Loop c1 c2) (code, stack, state) = (c1 ++ [Branch (c2 ++ [Loop c1 c2]) [Noop]] ++ code, stack, state)
 execute (Store x) (code, stack, state) = (code, pop stack, storeX x stack state)
-execute _ (_, _, _) = error "Run-time error"
+
 
 -- Function to push a value n to the stack
 pushN :: Integer -> Stack -> Stack
@@ -326,7 +326,9 @@ lexer ('F':'a':'l':'s':'e' : restStr) = BoolTok False : lexer restStr
 
 lexer (chr : restStr)
   | isSpace chr = lexer restStr
-  | isAlpha chr = VarTok (chr : takeWhile isAlphaNum restStr) : lexer (dropWhile isAlphaNum restStr)
+  | isAlpha chr && isLower chr = VarTok (chr : takeWhile (\c -> c `notElem` reservedSymbols) restStr) : lexer (dropWhile (\c -> c `notElem` reservedSymbols) restStr)
+  where
+    reservedSymbols = "+-*();:=<> "
 
 lexer str@(chr : _)
   | isDigit chr
@@ -490,9 +492,9 @@ parseStatements tokens =
         _ -> Just ([stmt], restTokens)
     Nothing -> Nothing
 
+parseStatement :: [Token] -> Maybe (Stm, [Token])
 -------------- ASSIGNMENT STATEMENT PARSER --------------
 -- Function to parse an assignment statement into a statement
-parseStatement :: [Token] -> Maybe (Stm, [Token])
 parseStatement (VarTok var : AssignTok : restTokens1) =
   case parseSubOrSumOrProdOrIntOrPar restTokens1 of
     Just (expr, SemicolonTok : restTokens2) ->
@@ -555,7 +557,7 @@ parser :: [Token] -> Program
 parser tokens =
   case parseStatements tokens of
     Just (expr, []) -> expr
-    _ -> error "Run-time error"
+    _ -> error "Parser error"
 
 -------------------------------------------------------------------------------------------
 
